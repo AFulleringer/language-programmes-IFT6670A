@@ -11,6 +11,15 @@ import parsimonious
 import requests
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
+from openai.error import APIConnectionError as OpenAIConnectionError
+from openai.error import APIError as OpenAIAPIError
+from openai.error import RateLimitError as OpenAIRateLimitError
+from openai.error import InvalidRequestError as OpenAIInvalidRequestError
+from openai.api_resources.completion import Completion as OpenAICompletion
+from openai.openai_object import OpenAIObject
+from tenacity import retry
+from tenacity.retry import retry_if_exception_type
+from tenacity.wait import wait_random_exponential
 subscription_key = "28dc412935f24fb9974d80c30915483a"
 search_url = "https://api.bing.microsoft.com/v7.0/search"
 headers = {"Ocp-Apim-Subscription-Key": subscription_key}
@@ -71,27 +80,54 @@ class OpenAIModel(adatest.Model):
         self.n = n
 
     def __call__(self, strings: Union[str, List[str]]) -> List[str]:
+
+        @retry(
+            retry=retry_if_exception_type(
+                exception_types=(
+                    OpenAIRateLimitError,  # Rate limit exceeded (20 requests per minute)
+                    OpenAIConnectionError,  # Sometimes we get a connection error
+                    OpenAIAPIError,  # Sometimes we get APIError: Internal Error
+                )
+            ),
+            wait=wait_random_exponential(
+                multiplier=0.5, #self.retry_multiplier,
+                max=60. #self.retry_max_delay,
+            ),
+        )
+        def _get_response() -> OpenAIObject:
+            return openai.ChatCompletion.create(**create_kwargs)  # type: ignore
+
         if "turbo" in self.model_name:  # chat models
             if isinstance(strings, str):
                 strings = [strings]
 
             out = []
             for string in strings:
-                resp = openai.ChatCompletion.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are a helpful, tool-augmented assistant.",
-                        },
-                        {"role": "user", "content": string},
-                    ],
-                    max_tokens=self.max_length,
-                    temperature=self.temperature,
-                    top_p=self.top_p,
-                    n=self.n,
-                    stop=self.quote,
-                )
+                messages = [
+                {
+                    "role": "system",
+                    "content": "You are a helpful, tool-augmented assistant.",
+                },
+                {"role": "user", "content": string},
+                ]
+                create_kwargs = {
+                        "model": self.model,
+                        "max_tokens": self.max_length,
+                        "temperature": self.temperature,
+                        "top_p": self.top_p,
+                        "n": self.n,
+                        "stop": self.quote,
+                        "messages": messages,
+                    }
+                try:
+                    resp = _get_response()
+                except Exception as e:
+                    if e.user_message[:50]=="This model's maximum context length is 4097 tokens":
+                        import pdb; pdb.set_trace()
+                    else:
+                        print(f"LLM completion failed: {e}")
+                        # FIXME: re-raising for now, but should probably be handled better
+                        raise
 
                 finish_reason = resp["choices"][0]["finish_reason"]
                 if finish_reason != "stop":
@@ -103,15 +139,41 @@ class OpenAIModel(adatest.Model):
         if "google" in self.model_name:
             resp = self.model(strings)
         else:  # text completion models
-            resp = openai.Completion.create(
-                model=self.model,
-                prompt=strings,
-                max_tokens=self.max_length,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                n=self.n,
-                stop=self.quote,
+            create_kwargs = {
+                "model": self.model,
+                "prompt": strings,
+                "max_tokens": self.max_length,
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "n": self.n,
+                "stop": self.quote
+            }
+            @retry(
+                retry=retry_if_exception_type(
+                    exception_types=(
+                        OpenAIRateLimitError,  # Rate limit exceeded (20 requests per minute)
+                        OpenAIConnectionError,  # Sometimes we get a connection error
+                        OpenAIAPIError,  # Sometimes we get APIError: Internal Error
+                    )
+                ),
+                wait=wait_random_exponential(
+                    multiplier=self.retry_multiplier,
+                    max=self.retry_max_delay,
+                ),
             )
+            def _get_response() -> OpenAIObject:
+                return openai.ChatCompletion.create(**create_kwargs)  # type: ignore
+
+            try:
+                resp = _get_response()
+            except Exception as e:
+                if e.user_message[:50]=="This model's maximum context length is 4097 tokens":
+                    import pdb; pdb.set_trace()
+                else:
+                    print(f"LLM completion failed: {e}")
+                    # FIXME: re-raising for now, but should probably be handled better
+                    raise
+
         return [x["text"] for x in resp["choices"]]
 
 
