@@ -48,9 +48,11 @@ def save_run_dict(run_dict, run_title, output_directory=OUTPUT_DIRECTORY):
 
 
 def read(keys, _, run_title) -> Tuple[str, str]:
+    run_title = 'current-summary'
     read_write_dict = get_run_dict(run_title)
 
     keys = [key.strip() for key in keys.split(",")]
+    keys = ['current-summary']
 
     out = []
     missing_keys = []
@@ -70,6 +72,7 @@ def read(keys, _, run_title) -> Tuple[str, str]:
 
 
 def list_keys(_, __, run_title):
+    run_title = 'current-summary'
     read_write_dict = get_run_dict(run_title)
 
     return ", ".join(read_write_dict.keys()), None
@@ -89,7 +92,8 @@ def write(instruction, _, run_title) -> Tuple[str, str]:
     text = God created the earth, light, and dark.
     """
     key, text = parse_instruction(instruction)
-
+    run_title = 'current-summary'
+    key = 'current-summary'
     read_write_dict = get_run_dict(run_title)
     read_write_dict[key] = text
     save_run_dict(read_write_dict, run_title)

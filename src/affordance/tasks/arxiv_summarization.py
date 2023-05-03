@@ -56,7 +56,8 @@ def load_arxiv_sum(
 
 
 # TODO Only using 10 examples for now
-dev_inputs, dev_labels = load_arxiv_sum(split="validation[:10]")
+# dev_inputs, dev_labels = load_arxiv_sum(split="validation[:10]")
+dev_inputs, dev_labels = load_arxiv_sum(split="validation[:1]")
 
 io_pairs = [
     ("""A: <article 1 from arxiv>""", "S: <summary 1 from arxiv>"),
@@ -196,13 +197,12 @@ def nl_program(model_name: str, temperature: float, strategy: str, run_title: st
                 # run across all the chunks in order
                 for j, chunk in enumerate(article):
                     chunk_prompt = format_prompt(prompt, j, len(article), chunk)
-
+                    # import pdb; pdb.set_trace()
                     full_text = visit(model, chunk_prompt, article_id)
 
                 answers.append(get_answer(full_text))
 
                 pbar.update(1)
-
             perf_array.append(rouge.compute(references=dev_labels, predictions=answers))
 
     print("performance:", perf_array)
