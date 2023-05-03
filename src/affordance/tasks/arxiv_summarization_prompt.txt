@@ -22,26 +22,18 @@ See how in the example above you read the running summary, and then add new info
 
 ----BEGIN EXAMPLE----
 Input: (3/4) the ensemble results on the other hand , even when converged , show statistical roughness .   ( b ) the ensemble results are consistent with barbi and salerno in general , although disagreeing in several details . <SHORTENED FOR BREVITY> note in particular in this figure that eyeball tests can be misleading .
-Q1: [list-keys]
-#1: current-summary
-Q2: [read] current-summary
-#2: In the classical phase space for Hamiltonian <SHORTENED FOR BREVITY> current reversal occurs.
-Q3: [write] (current-summary) The passage describes a study on the relationship between bifurcations and current reversals in a system. The authors used ensembles of particles to examine how their results converged as a function of various parameters. They found that not all bifurcations led to current reversals, but did not rule out the possibility that all current reversals are associated with bifurcations, which is Mateos' conjecture. The study differed from a previous one by Barbi and Salerno, who used single-trajectory results instead of ensembles of particles. The article concludes that the ensemble current provides significant information that cannot be obtained from a single-trajectory current.
-Q3: [EOQ]
+Q1: [read] current-summary
+#1: In the classical phase space for Hamiltonian <SHORTENED FOR BREVITY> current reversal occurs.
+Q2: [write] (current-summary) The passage describes a study on the relationship between bifurcations and current reversals in a system. The authors used ensembles of particles to examine how their results converged as a function of various parameters. They found that not all bifurcations led to current reversals, but did not rule out the possibility that all current reversals are associated with bifurcations, which is Mateos' conjecture. The study differed from a previous one by Barbi and Salerno, who used single-trajectory results instead of ensembles of particles. The article concludes that the ensemble current provides significant information that cannot be obtained from a single-trajectory current.
+#2: [EOQ]
 ----END EXAMPLE----
 
 In this final example, we show how you will output the final summary using [ans]:
 
 Input: (4/4) we see reversals without bifurcations in ( a ) whereas the zoomed version ( c ) shows that there are windows of periodic and chaotic regimes . <SHORTENED FOR BREVITY> each of the transitions from periodic behavior to chaos and back provides opportunities for the current to spike .
-Q1: [list-keys]
-#1: current-summary
-Q2: [read] current-summary
-#2: The behavior of a system <SHORTENED FOR BREVITY> current reversals.
-Q3: [read] current-summary
-#3: In the classical phase space for Hamiltonian <SHORTENED FOR BREVITY> current reversal occurs.
-Q4: [read] current-summary
-#4: The passage describes a study on the relationship between bifurcations <SHORTENED FOR BREVITY> from a single-trajectory current.
-Q5: [ans] This work delves into the relationship between bifurcations and current reversals in a driven, damped, and chaotic system, emphasizing the significance of considering ensembles of trajectories and their convergence properties when examining the current's behavior. It is discovered that not all bifurcations result in current reversals, and not all current reversals are linked to bifurcations. Nonetheless, a generalization of Mateos' conjecture is proposed, which suggests that bifurcations correspond to sudden current changes (spikes or jumps). This improved understanding aids in characterizing changes in the current's behavior as a function of parameter and is useful in identifying "hidden" bifurcations, providing a more comprehensive perspective on the system's dynamics.
+Q1: [read] current-summary
+#1: The passage describes a study on the relationship between bifurcations <SHORTENED FOR BREVITY> from a single-trajectory current.
+Q2: [ans] This work delves into the relationship between bifurcations and current reversals in a driven, damped, and chaotic system, emphasizing the significance of considering ensembles of trajectories and their convergence properties when examining the current's behavior. It is discovered that not all bifurcations result in current reversals, and not all current reversals are linked to bifurcations. Nonetheless, a generalization of Mateos' conjecture is proposed, which suggests that bifurcations correspond to sudden current changes (spikes or jumps). This improved understanding aids in characterizing changes in the current's behavior as a function of parameter and is useful in identifying "hidden" bifurcations, providing a more comprehensive perspective on the system's dynamics.
 ----END EXAMPLE----
 Remember, you are summarizing a long document that does not fit in the context window, and we will only show you one chunk of the text now. {instructions} Here you go:
 
