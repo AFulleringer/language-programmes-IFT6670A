@@ -123,7 +123,8 @@ class OpenAIModel(adatest.Model):
                     resp = _get_response()
                 except Exception as e:
                     if e.user_message[:50]=="This model's maximum context length is 4097 tokens":
-                        import pdb; pdb.set_trace()
+                        create_kwargs['max_tokens'] = 4097 - int(e.user_message.split('(')[1][:4]) - 1
+                        resp = _get_response()
                     else:
                         print(f"LLM completion failed: {e}")
                         # FIXME: re-raising for now, but should probably be handled better
