@@ -134,7 +134,6 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
             else:
                 completion="[EOQ]"
         except:
-            import pdb; pdb.set_trace()
             continue
         print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
         if completion.startswith("[EOQ]") or completion.startswith("[ans]"):
