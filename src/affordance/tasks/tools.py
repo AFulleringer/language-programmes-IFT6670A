@@ -28,7 +28,7 @@ The output is a tuple of two strings:
 - (str) runtime details to be logged
 """
 
-OUTPUT_DIRECTORY = "./kvstore"
+OUTPUT_DIRECTORY = "./kvstore/base"
 
 
 def get_run_dict(run_title, output_directory=OUTPUT_DIRECTORY):
