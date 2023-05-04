@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 import time
-from typing import Callable, Dict, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Sequence, Tuple, Union
 
 import enchant
 import openai
@@ -36,7 +36,6 @@ def get_run_dict(run_title, output_directory=OUTPUT_DIRECTORY):
         with open(os.path.join(output_directory, run_title + ".pickle"), "rb") as handle:
             return pickle.load(handle)
     except FileNotFoundError:
-        print("creating a new dict for run: ", run_title)
         return {}
 
 
@@ -47,10 +46,10 @@ def save_run_dict(run_dict, run_title, output_directory=OUTPUT_DIRECTORY):
         pickle.dump(run_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def read(keys, _, run_title) -> Tuple[str, str]:
+def read(keys: str, _, run_title: str) -> Tuple[str, str]:
     read_write_dict = get_run_dict(run_title)
 
-    keys = [key.strip() for key in keys.split(",")]
+    keys = [key.strip(" \n()") for key in keys.split(",")]
 
     out = []
     missing_keys = []
@@ -75,11 +74,16 @@ def list_keys(_, __, run_title):
     return ", ".join(read_write_dict.keys()), None
 
 
-def parse_instruction(instruction):
-    # parse `instruction` = (first day creation) God created the earth, light, and dark.
+def parse_instruction(instruction: str) -> Tuple[str, str]:
+    """Parse the key and text from a write instruction.
+
+    E.g. "(key) instructions go here" -> "key", "instructions"
+    """
     split = instruction.split(")", 1)
+
     key = split[0][1:]  # remove "("
     text = split[1].strip()
+
     return key, text
 
 

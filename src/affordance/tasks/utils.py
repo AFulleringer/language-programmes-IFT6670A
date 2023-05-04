@@ -2,13 +2,20 @@ from dataclasses import dataclass
 import re
 import subprocess
 import sys
-from typing import List, Union
+from typing import Dict, List, Union
 
 import adatest
 import numpy as np
 import openai
+from openai.error import APIConnectionError as OpenAIConnectionError
+from openai.error import APIError as OpenAIAPIError
+from openai.error import InvalidRequestError as OpenAIInvalidRequestError
+from openai.error import RateLimitError as OpenAIRateLimitError
+from openai.openai_object import OpenAIObject
 import parsimonious
 import requests
+from tenacity import retry, retry_if_exception_type, wait_random_exponential
+import tiktoken
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 subscription_key = "28dc412935f24fb9974d80c30915483a"
@@ -147,6 +154,98 @@ class OpenAIModelLogProb(adatest.Model):
             logprobs=self.logprobs,
         )
         return resp
+
+
+# add retry with exponential backoff to openai.ChatCompletion.create
+@retry(
+    retry=retry_if_exception_type((OpenAIRateLimitError, OpenAIConnectionError, OpenAIAPIError)),
+    wait=wait_random_exponential(multiplier=0.5, max=60.0),
+)
+def _chat_completion_create(**kwargs) -> OpenAIObject:
+    return openai.ChatCompletion.create(**kwargs)
+
+
+_number_re = re.compile(r"\d+")
+
+
+class ChatModel:
+    """This is like OpenAIModel but for chat completion models instead. These models use chats
+    instead of text completions."""
+
+    history: List[Dict[str, str]]
+
+    def __init__(self, model: str, stop: str = None, temp: float = 0.5, n: int = 1):
+        self.model = model
+        self.stop = stop
+        self.temp = temp
+        self.n = n
+
+        self.reset_history()
+
+    def reset_history(self):
+        self.history = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant augmented with the following tools: [read], "
+                    "[write], [list-keys], and [ans]."
+                ),
+            }
+        ]
+
+    def chat(self, msg: str) -> str:
+        self.history.append({"role": "user", "content": msg})
+
+        for i in range(5):
+            try:
+                resp = _chat_completion_create(
+                    messages=self.history,
+                    model=self.model,
+                    temperature=self.temp,
+                    n=self.n,
+                    stop=self.stop,
+                )
+                break
+            except OpenAIInvalidRequestError as e:
+                if not e.user_message.startswith("This model's maximum context length is"):
+                    raise
+                if i == 4:
+                    raise
+
+                matches = _number_re.findall(e.user_message)
+                want = int(matches[0])
+                got = int(matches[1])
+                shorten_by = got - want + 500  # room for a response of length 500
+                self._shorten_prompt(shorten_by)
+                print(f"shortened prompt by {shorten_by}")
+
+        finish_reason = resp["choices"][0]["finish_reason"]
+        if finish_reason != "stop":
+            print(f"WARNING: incomplete model response: finish reason '{finish_reason}'")
+
+        self.history.append(resp["choices"][0]["message"])
+        return self.history[-1]["content"]
+
+    def _shorten_prompt(self, by: int = 1):
+        msg = self.history[1]["content"]
+
+        enc = tiktoken.encoding_for_model(self.model)
+
+        divider = "\n\n"
+        sections = msg.split(divider)
+
+        keep_after = 0
+        tokens_cut = 0
+        for section in sections:
+            if tokens_cut >= by:
+                break
+            tokens_cut += len(enc.encode(section))
+            keep_after += 1
+
+        self.history[1]["content"] = divider.join(sections[keep_after:])
+
+    def edit(self, new_msg: str, idx: int = -1) -> str:
+        self.history[idx]["content"] = new_msg
 
 
 def propose_decomposition(decomp_prompt, io_pairs, n=20):

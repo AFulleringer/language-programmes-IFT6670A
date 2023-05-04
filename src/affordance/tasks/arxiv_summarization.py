@@ -1,16 +1,17 @@
 import argparse
+import multiprocessing as mp
 import os
 from typing import Tuple
 
 import datasets
 import evaluate
+from openai.error import InvalidRequestError as OpenAIInvalidRequestError
 from prompt_library import llm_similar_tasks, random_tasks, similar_auto_breakdowns, similar_tasks
-from sequential_interpreter import TopDownVisitor
 import tiktoken
 from tools import get_tool
 from tqdm import tqdm
 from transformers import GPT2Tokenizer
-from utils import OpenAIModel, cache_dir, chunks
+from utils import ChatModel, cache_dir, chunks
 
 tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
@@ -71,20 +72,25 @@ prompt_filename = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "arxiv_summarization_prompt.txt"
 )
 with open(prompt_filename) as f:
-    few_shot_cot_prompt = f.read().strip() + " "  # prompt ends with "Q1:", needs space
+    few_shot_cot_prompt = f.read()
 
 
 def format_prompt(prompt: str, i: int, n: int, text: str):
     """Format the prompt with the chunk and supporting information."""
     ins = (
-        "Your goal at this stage is to store important information that you can recall later when "
-        "you're producing the final summary after the last chunk. Use [read], [write], and "
-        "[list-keys] to load/store any information you like as you process this chunk."
+        "Your goal at this stage is to store important information to recall later when producing "
+        "the final summary after the last chunk. Use [list-keys], [read], and [write] to "
+        "load/store any information you like as you process this chunk."
     )
+    if i == 0:
+        ins = (
+            "Your goal for this first chunk is to use [write] to store important information to "
+            "recall later when producing the final summary."
+        )
     if i == n - 1:
         ins = (
-            "Your goal for this final chunk is to leverage the information you stored previously "
-            "in order to output a final summary of the entire text using [ans]."
+            "Your goal for this final chunk is to [list-keys] and [read] the information you "
+            "stored previously in order to output a final summary of the entire text using [ans]."
         )
 
     return prompt.format(instructions=ins, i=i + 1, n=n, text=text)
@@ -116,21 +122,27 @@ tool_exclude = [
 ]
 
 
-def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int = 5) -> str:
-    """Successively evaluates the model to produce new lines until an [EOQ] is reached.
-
-    The last line in text should be "Q{q}:", where q is the question number we're starting from.
-    """
-    print("NEW PROMPT:")
-    print(text.rsplit("----", 1)[1].strip(), end="")
+def visit(model: ChatModel, text: str, run_id: str, q: int = 1, max_runs: int = 5) -> str:
+    """Successively evaluates the model to produce new lines until an [EOQ] is reached."""
+    # print("NEW PROMPT:")
+    # print(text.rsplit("----", 1)[1].strip(), end="")
 
     for _ in range(max_runs):
-        print(" AWAITING COMPLETION...", end="", flush=True)
-        # print('\ntext length', len(text))
-        completion = model(text)[0].strip()
-        print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
-        if completion.startswith("[EOQ]") or completion.startswith("[ans]"):
-            return text + completion
+        # print(" AWAITING COMPLETION...", end="", flush=True)
+        try:
+            completion = model.chat(text).strip()
+        except OpenAIInvalidRequestError:
+            # give up
+            print(f"had to give up on {run_id} due to length constraints")
+            break
+        # print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
+
+        if completion.startswith(f"Q{q}: "):
+            completion = completion.split(maxsplit=1)[1]
+            model.edit(completion)
+        if "[ans]" in completion or completion in ["[EOQ]", "[EOC]", "[EOI]"]:
+            break
+
         spl = completion.split(" ", 1)
         tool_name = spl[0]
         args = ""
@@ -139,24 +151,21 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
 
         tool_func = get_tool(tool_name, tool_exclude)
         if tool_func is None:
-            print(f"tool '{tool_name}' does not exist")
+            output = f"tool '{tool_name}' does not exist"
+        else:
+            # print(f"#{q}: RUNNING TOOL...", end="", flush=True)
+            output, details = tool_func(args, "", run_id)
 
-            continue  # retry
+        # print(f"\r#{q}: {output}" + " " * (len("RUNNING TOOL...") - len(output)))
+        # if details:
+        #     print(f"tool '{tool_name}' details:", details)
 
-        # run the tool
-        print(f"#{q}: RUNNING TOOL...", end="", flush=True)
-        output, details = tool_func(args, "", run_id)
-
-        print(f"\r#{q}: {output}" + " " * (len("RUNNING TOOL...") - len(output)))
-        if details:
-            print(f"tool '{tool_name}' details:", details)
-
-        # update the text
-        text += completion + f"\n#{q}: " + output + f"\nQ{q+1}: "
-        print(f"Q{q+1}:", end="", flush=True)
+        # prepare the next message
+        text = f"#{q}: " + output + f"\nQ{q+1}:"
+        # print(f"Q{q+1}:", end="", flush=True)
         q += 1
 
-    return text
+    return "\n".join(msg["content"] for msg in model.history)
 
 
 answer_tool = "[ans]"
@@ -172,41 +181,45 @@ def get_answer(completion: str) -> str:
     return completion[idx:].split("\n", 1)[0].strip()
 
 
-def nl_program(model_name: str, temperature: float, strategy: str, run_title: str):
+def _evaluate(model_name, temp, prompt, article, article_id):
+    model = ChatModel(model_name, stop="\n", temp=temp, n=1)
+
+    # run across all the chunks in order
+    for j, chunk in enumerate(article):
+        print(f"{article_id}({j}/{len(article)})")
+        chunk_prompt = format_prompt(prompt, j, len(article), chunk)
+
+        model.reset_history()
+        full_text = visit(model, chunk_prompt, article_id)
+
+    return get_answer(full_text)
+
+
+def nl_program(model_name: str, temp: float, strategy: str, run_title: str):
     prompt = get_few_shot_cot_prompt(task_name, task_description, strategy)
 
-    n = 1
     runs = 1
-
-    model = OpenAIModel(model_name, quote="\n", temperature=temperature, max_length=1000, n=n)
 
     # a list of article IDs to pass as run titles
     train_ids = [f"{run_title}_train_{i}" for i in range(len(dev_inputs))]
 
-    perf_array = []
-    with tqdm(total=runs * len(dev_inputs)) as pbar:
-        for run in range(runs):
-            pbar.set_description(f"run {run+1}/{runs}")
+    for r in tqdm(range(runs)):
+        pool = mp.Pool()
+        answers = []
 
-            answers = []
+        for i in range(len(dev_inputs)):
+            article = dev_inputs[i]
+            article_id = train_ids[i]
+            answers.append(
+                pool.apply_async(_evaluate, args=(model_name, temp, prompt, article, article_id))
+            )
 
-            for i in range(len(dev_inputs)):
-                article = dev_inputs[i]
-                article_id = train_ids[i]
+        pool.close()
+        pool.join()
 
-                # run across all the chunks in order
-                for j, chunk in enumerate(article):
-                    chunk_prompt = format_prompt(prompt, j, len(article), chunk)
+        preds = [ans.get() for ans in answers]
 
-                    full_text = visit(model, chunk_prompt, article_id)
-
-                answers.append(get_answer(full_text))
-
-                pbar.update(1)
-
-            perf_array.append(rouge.compute(references=dev_labels, predictions=answers))
-
-    print("performance:", perf_array)
+        print(f"run {r}:", rouge.compute(references=dev_labels, predictions=preds))
 
 
 if __name__ == "__main__":
@@ -253,6 +266,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dev_inputs = dev_inputs[: args.num_examples]
+    dev_labels = dev_labels[: args.num_examples]
 
     print("dataset statistics")
     print(task_description)
