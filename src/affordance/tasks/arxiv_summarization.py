@@ -56,8 +56,8 @@ def load_arxiv_sum(
 
 
 # TODO Only using 10 examples for now
-# dev_inputs, dev_labels = load_arxiv_sum(split="validation[:10]")
-dev_inputs, dev_labels = load_arxiv_sum(split="validation[:1]")
+dev_inputs, dev_labels = load_arxiv_sum(split="validation[100:150]")
+# dev_inputs, dev_labels = load_arxiv_sum(split="validation[:1]")
 
 io_pairs = [
     ("""A: <article 1 from arxiv>""", "S: <summary 1 from arxiv>"),
@@ -127,7 +127,15 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
 
     for _ in range(max_runs):
         print(" AWAITING COMPLETION...", end="", flush=True)
-        completion = model(text)[0].strip()
+        try:
+            model_text = model(text)
+            if len(model_text)>0:
+                completion = model_text[0].strip()
+            else:
+                completion="[EOQ]"
+        except:
+            import pdb; pdb.set_trace()
+            continue
         print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
         if completion.startswith("[EOQ]") or completion.startswith("[ans]"):
             return text + completion
