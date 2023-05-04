@@ -132,7 +132,7 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
             if len(model_text)>0:
                 completion = model_text[0].strip()
             else:
-                completion="[EOQ]"
+                continue
         except:
             continue
         print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
