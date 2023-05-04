@@ -126,8 +126,18 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
 
     for _ in range(max_runs):
         print(" AWAITING COMPLETION...", end="", flush=True)
-        # print('\ntext length', len(text))
-        completion = model(text)[0].strip()
+        print('\ntext length', len(text))
+        n=14000
+        # if len(text)>n:
+        completion = None
+        for i in range(0,len(text), n):
+            print('len of text chunk: ', len(text[i:i+n]))
+            if completion is not None:
+                completion = completion  +  model(text[i:i+n])[0].strip()
+            else:
+                completion = model(text[i:i+n])[0].strip()
+        # else:
+        #     completion = model(text)[0].strip()
         print(f"\rQ{q}: " + completion + " " * (len("AWAITING COMPLETION...") - len(completion)))
         if completion.startswith("[EOQ]") or completion.startswith("[ans]"):
             return text + completion
@@ -253,6 +263,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dev_inputs = dev_inputs[: args.num_examples]
+    dev_labels = dev_labels[: args.num_examples]
 
     print("dataset statistics")
     print(task_description)
