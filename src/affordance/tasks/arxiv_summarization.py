@@ -127,7 +127,7 @@ def visit(model: OpenAIModel, text: str, run_id: str, q: int = 1, max_runs: int 
     for _ in range(max_runs):
         print(" AWAITING COMPLETION...", end="", flush=True)
         print('\ntext length', len(text))
-        n=14000
+        n=12000
         # if len(text)>n:
         completion = None
         for i in range(0,len(text), n):
