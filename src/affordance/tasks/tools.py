@@ -28,7 +28,7 @@ The output is a tuple of two strings:
 - (str) runtime details to be logged
 """
 
-OUTPUT_DIRECTORY = "./kvstore/base"
+OUTPUT_DIRECTORY = "./kvstore/georges"
 
 
 def get_run_dict(run_title, output_directory=OUTPUT_DIRECTORY):
@@ -49,7 +49,7 @@ def save_run_dict(run_dict, run_title, output_directory=OUTPUT_DIRECTORY):
 def read(keys: str, _, run_title: str) -> Tuple[str, str]:
     read_write_dict = get_run_dict(run_title)
 
-    keys = [key.strip(" \n()") for key in keys.split(",")]
+    keys = ["current-summary"]
 
     out = []
     missing_keys = []
@@ -93,6 +93,7 @@ def write(instruction, _, run_title) -> Tuple[str, str]:
     text = God created the earth, light, and dark.
     """
     key, text = parse_instruction(instruction)
+    key = "current-summary"
 
     read_write_dict = get_run_dict(run_title)
     read_write_dict[key] = text
