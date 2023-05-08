@@ -66,16 +66,16 @@ We simplify the framework and only focus on constructing few-shot prompts for lo
 
 
 \section{Background}
-Apart from the ART paper, another work that uses tools with an LLM is Toolformer~\cite{schick2023toolformer}.
-However, different from ART, Toolformer was finetuned to learn how to use tools, as opposed to relying on in-context learning. The advantage of our approach (and ART in general) is that you can switch LLMs without need of finetuning.
+LLMs have shown incredible performance in several tasks, but have shown limited performance in others, for example, when solving arithmetic reasoning tasks ~\cite{imani2023mathprompter}.
+The idea of adding external tools to LLMs to be able to overcome these limitations has been explored recently ~\cite{shuster2022language} but has required large amounts of human supervision.
+Another line of work uses self-supervision to teach LLMs to use tools. For example, Toolformer~\cite{schick2023toolformer}, different from ART, was finetuned to learn how to use tools, as opposed to relying on in-context learning. 
+The advantage of our approach (and ART in general) is that you can switch LLMs without need of finetuning.
 
 Other relevant recent work proposes prompting LLMs with intermediate reasoning steps. Chain-of-Thought (CoT) prompting~\cite{wei2023chainofthought} persuades LLMs to generate intermediate reasoning steps before the final answer.
 Whilst the above prompts were hand-crafted, recent work~\cite{kojima2023large} exhibited that LLMs can generate CoT-style multi-step reasoning in a zero-shot manner, when prompted with the prefix "Let's think step by step".
 
-Finally, state-of-the-art approaches for long document summarization include the following:
-Top Down Transformer (Long Document Summarization with Top-down and Bottom-up Inference)
-LongT5: Efficient Text-to-Text Transformer for Long Sequences
-Pegasus X: Investigating Efficiently Extending Transformers for Long Document Summarization and Document Summarization with Text Segmentation \add{\cite}.
+Finally, state-of-the-art approaches for long document summarization include the following: Top Down Transformer (Long Document Summarization with Top-down and Bottom-up Inference) ~\cite{pang2022long}; LongT5: Efficient Text-to-Text Transformer for Long Sequences~\cite{guo2022longt5}; and Pegasus X: Investigating Efficiently Extending Transformers for Long Document Summarization ~\cite{phang2022investigating}.
+However, different from our approach, all of these methods require extensive compute and large amount of human supervision to finetune the Transformer models for summarization.
 
 
 \section{Methodology}
