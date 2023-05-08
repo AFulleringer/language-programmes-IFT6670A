@@ -66,10 +66,11 @@ We simplify the framework and only focus on constructing few-shot prompts for lo
 
 
 \section{Background}
-Apart from the ART paper, another work that uses tools with an LLM is Toolformer \add{cite}.
+Apart from the ART paper, another work that uses tools with an LLM is Toolformer~\cite{schick2023toolformer}.
 However, different from ART, Toolformer was finetuned to learn how to use tools, as opposed to in-context learning. The advantage of our approach is that you can switch LLM without the need of finetuning.
 
-Other relevant recent work proposes prompting LLMs to mimic a chain of thought (CoT) for multi-step reasoning by stating in the prompt to think Step-by-step \add{cite}.
+Other relevant recent work proposes prompting LLMs with intermediate reasoning steps. Chain-of-Thought (CoT) prompting~\cite{wei2023chainofthought} persuades LLMs to generate intermediate reasoning steps before the final answer.
+Whilst the above prompts were hand-crafted, recent work~\cite{kojima2023large} exhibited that LLMs can generate CoT-style multi-step reasoning in a zero-shot manner, when prompted with the prefix "Let's think step by step".
 
 Finally, state-of-the-art approaches for long document summarization include the following:
 Top Down Transformer (Long Document Summarization with Top-down and Bottom-up Inference)
