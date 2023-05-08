@@ -166,6 +166,86 @@ Otherwise, it may be desirable to fine tune smaller models specifically to use t
 To achieve the goal of an AGI system, it will be necessary for it to diversify its problem-solving across many contexts.
 Creating systems capable of learning to use tools may be an invaluable step along this path.
 
+Our goal was to create a modified ART framework that allows for an LLM to read from, write to, and organize a form of long-term memory, without actually retraining model weights.
+This would allow for the model to dynamically access previously stored information, as well as update its local repository with valuable data as it reads through prompts.
+Given the finite context window of any LLM, ensuring that only relevant data is retrieved would be a crucial requirement of this system.
+With these goals and constraints in mind, we chose a Python dictionary as the underlying data structure for persisting information.
+A dictionary organizes data into key-value pairs, which would naturally allow for organization and efficient retrieval based on the LLM selecting only relevant keys.
+The LLM would load the information stored at keys it finds relevant to its current task, and organize the information it stores by choosing an appropriate key.
+
+In the context of ART, this translates into the creation of three tools to accomplish our envisioned task. Firstly, we define \texttt{[list-keys]}, a tool that takes no inputs and returns a string containing all the keys in the dictionary.
+Next we define \texttt{[write]}, this tool requires a key-value pair and writes the pair into the dictionary, updating the value stored under the key if it is already present.
+Finally, we define \texttt{[read]}, a tool that takes a key as input and returns the information stored at that key in the dictionary.
+Currently the tools save the dictionary to, and read it from, storage to ensure the long term stability of the data.
+
+
+% As is standard with ART prompts, demonstrations of the task are prepended to the prompt to provide the LLM an example of how to handle the task~\cite{paranjape2023art}.
+% Each article is split into multiple chunks that are fed one at a time into the modified ART framework, with the network choosing how to organize and persist data for later perusal.
+% At the end of each article, each entry in the dictionary is then fed back into the LLM and a complete summary is generated. Experiments, results, and their analysis are discussed below.
+
+\section{Experiments}\label{section:experiments}
+
+To effectively judge the usefulness of our method, we chose to evaluate on the abstractive summarization task. Unlike extractive summarization, in this task the summary is expected to be a concise representation that effectively communicates the key ideas in the text, rather than a composition of important phrases in the text. This is more like how humans generally summarize texts, and provides a stronger challenge for our method. We evaluated our method on the arXiv abstractive summarization dataset~\cite{cohan-etal-2018-discourse}. Texts in this dataset can be more than 300k tokens in length (see statistics in Figure~\ref{fig:length-hist}), which provides a good setting to test how well our method allows a model to use information from across long input.
+
+\begin{figure}[!ht]
+  \centering
+  \begin{subfigure}{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/length_hist_train.png}
+    \caption{Sentence lengths in the train set. The sentence lengths have mean 8,630.2, median 6,883.0, minimum 0, and maximum 329,071 (not visible).}\label{fig:train-hist}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}{0.45\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/length_hist_validation.png}
+    \caption{Sentence lengths in the validation set. The sentence lengths have mean 8,208.3, median 6,871.5, minimum 244, and maximum 109,442 (not visible).}\label{fig:val-hist}
+  \end{subfigure}
+  \caption{Distribution of sentence lengths (number of tokens) in the train and validation sets. For reference, the maximum context sizes for various GPT models are marked as vertical lines. Our method makes it feasible to summarize long documents without access to GPT-4 or GPT-4-32k.}\label{fig:length-hist}
+\end{figure}
+
+To this end, we designed three tools for the model to use: \texttt{[read]}, \texttt{[write]}, and \texttt{[list-keys]}; along with a prompt that explains the task and demonstrates how to use these tools to accomplish the goal of a good summary. The \texttt{[read]} and \texttt{[write]} tools each accept a short text key, and the text associated with the key is stored in a Python dict. This data is specific to each article, and is built by the model as it receives each chunk. The prompt specifically instructs the model to store information under meaningfully-named keys using \texttt{[write]}, and then to \texttt{[read]} all stored information during the last chunk in order to produce the final output.\footnote{See Appendix~\ref{section:prompts} for the text of the prompts used in this project.}
+
+Each article is split into chunks of 15 sentences each. We would have preferred to make sure chunks did not cross section dividers, but this was not possible due to the preprocessing in the dataset.
+
+\subsection{Prompt Variations}
+
+We experimented with two variations on the original prompt, both of which ended up improving the performance. One we call ``compressed intermediates'', and the other we name ``rolling summary''.
+
+For ``compressed intermediates'', we modify the examples to show the model storing text that looks more like compressed notes than a complete summary. This reduces the number of tokens in the prompt as well as in model generations, which decreases the chance that the final summarization will be too large for the model to summarize from. In this experiment we also increased the length of the keys used for \texttt{[read]} and \texttt{[write]}; e.g.~``regular-chaotic-motions'' became ``regular-chaotic-motions-smooth-curves''. This seems to reduce the frequency of key collisions when text discussing a single phenomenon is split across multiple chunks.
+
+The prompt for ``rolling summary'' replaces the key names (``regular-chaotic-motions'', etc.) with ``current-summary'', and the stored summaries summarize both the current chunk and all previous chunks. The final example shows the model reading just the single key ``current-summary'' and combining it with the input chunk to produce the answer. Verbiage in the explanations is also slightly adapted to match these differences.
+
+
+\section{Results}
+
+We report metrics from the ROUGE family~\cite{lin-hovy-2003-automatic,ganesan2015rouge} for the three approaches on \texttt{n=10} samples from the validation set.
+
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{c|c|c|c|c}
+    \textbf{Method} & \textbf{ROUGE} & \textbf{ROUGE-2} & \textbf{ROUGE-L} & \textbf{ROUGE-L-Sum} \\
+    \hline
+    base            & 11.7           & 4.0              & 6.1              & 8.2                  \\
+    compressed      & 29.4           & 9.7              & 15.1             & 23.1                 \\
+    rolling         & 34.2           & 8.8              & 18.7             & 27.3                 \\
+  \end{tabular}
+  \vspace{0.5cm}
+  \caption{Experimental results for each of the prompts described in Section~\ref{section:experiments} on 10 samples from the arXiv summarization dataset, evaluated on several ROUGE-based metrics.}\label{tab:results}
+\end{table}
+
+We observe clear improvement over the base prompt for the two modifications. While the sample size for this experiment was small,\footnote{The cost of this experiment with \texttt{n=10} was US\$16, so we would like more funds in order to validate that these changes improve performance.} we think the difference is significant because they make it possible for more stored information to be \texttt{[read]} when generating the final summary.
+
+
+
+\section{Conclusion}
+
+In this project we have designed and implemented tools to be used by an LLM to organize and store relevant data for long-term/future use.
+We encountered difficulties in providing enough context for the LLM to properly use the tools, but found some success by shortening the stored text and the prompt.
+Future research avenues could involve using newer, bigger, LLMs that have larger context windows allowing for more varied tool use samples to be passed as part of the prompt.
+Otherwise, it may be desirable to fine tune smaller models specifically to use tools and address long standing issues with LLM capabilities.
+We'd also like to apply this methodology to make it possible for a frozen LLM to "learn" useful information to an external database, allowing the model to perform continual learning in the same way that it "learned" information as it processed each chunk of the articles in our experiment.
+Creating systems capable of learning to use tools will be an invaluable step in the path to robust models that learn across their deployment lifecycle.
+
 \bibliographystyle{neurips}
 \bibliography{main}
 
