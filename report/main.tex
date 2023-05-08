@@ -24,7 +24,7 @@
 }
 
 
-\title{LOLCATS: Leveraging Obscure Lexical Conventions And Tenuous Synonyms in computer science research}
+\title{F-ART: Fragmented ART for Long Document Summarization}
 
 
 \author{%
@@ -34,13 +34,13 @@
   Montréal, QC, Canada \\
   \texttt{kyle.roth@umontreal.ca} \\
   \And
-  Georges Bélanger Albarran\thanks{An especially cool guy.} \\
+  Georges Bélanger Albarran \\
   DIRO \\
   Université de Montréal \\
   Montréal, QC, Canada \\
   \texttt{georges.belanger.albarran@umontreal.ca} \\
   \And
-  Alex Fulleringer\thanks{An especially cool guy.} \\
+  Alex Fulleringer \\
   Concordia University \\
   Montréal, QC, Canada \\
   \texttt{alexfulleringer@gmail.com} \\
@@ -54,35 +54,32 @@
 
 
 \begin{abstract}
-  We did some stuff!
+  Recent developments in natural language processing have enabled large language models (LLMs) to quickly adapt to new tasks using natural language instructions and a few demonstrations as a prompt. This study investigates how the ART framework can be used to create and teach LLMs to use tools for long document summarization by consuming fragments of long documents in steps. We simplify the ART framework, focusing on constructing few-shot prompts for long document summarization that learns information onto external tools. We develop read/write tools to provide the model a form of long-term memory without retraining model weights. We evaluate our method on the arXiv abstractive summarization dataset and experiment with two variations of the original prompt, ``compressed intermediates'' and ``rolling summary.'' Results show clear improvement over the base prompt for the two modifications. This study demonstrates the potential of using external tools and a fragmented processing strategy to enhance LLM capabilities in long document summarization tasks without fine-tuning.
 \end{abstract}
 
 
 \section{Introduction}
 Recent developments in natural language processing have shown that in-context learning allows large language models (LLMs) to quickly adapt to new tasks by using natural language instructions and a few demonstrations as a prompt.
-Specifically, this investigation examines how by using the ART framework~\cite{paranjape2023art}, we can create and teach the LLM to use tools for Long Document Summarization.
+Specifically, this investigation examines how, by using the ART framework~\cite{paranjape2023art}, we can create and teach the LLM to use tools for long document summarization.
 
 In the ART paper, they generate automatic multi-step decompositions for new tasks by selecting decompositions of related tasks in the task library, and then select and use tools in the tool library alongside LLM generation.
 We simplify the framework and only focus on constructing few-shot prompts for long document summarization that learn information onto external tools. We leverage ART's program grammar, but create new tools specially designed for summarization of large documents split into chunks of text.
 
 
 \section{Background}
-LLMs have shown incredible performance in several tasks, but have shown limited performance in others, for example, when solving arithmetic reasoning tasks ~\cite{imani2023mathprompter}.
-The idea of adding external tools to LLMs to be able to overcome these limitations has been explored recently ~\cite{shuster2022language} but has required large amounts of human supervision.
-Another line of work uses self-supervision to teach LLMs to use tools. For example, Toolformer~\cite{schick2023toolformer}, different from ART, was finetuned to learn how to use tools, as opposed to relying on in-context learning. 
-The advantage of our approach (and ART in general) is that you can switch LLMs without need of finetuning.
+LLMs have shown incredible performance in several tasks, but have shown limited performance in others, for example, when solving arithmetic reasoning tasks~\cite{imani2023mathprompter}.
+The idea of adding external tools to LLMs to be able to overcome these limitations has been explored recently~\cite{shuster2022language} but has required large amounts of human supervision.
+Another line of work uses self-supervision to teach LLMs to use tools. For example, Toolformer~\cite{schick2023toolformer}, different from ART, was fine-tuned to learn how to use tools, as opposed to relying on in-context learning.
+The advantage of our approach (and ART in general) is that you can switch LLMs without need of fine-tuning.
 
-Other relevant recent work proposes prompting LLMs with intermediate reasoning steps. Chain-of-Thought (CoT) prompting~\cite{wei2023chainofthought} persuades LLMs to generate intermediate reasoning steps before the final answer.
-Whilst the above prompts were hand-crafted, recent work~\cite{kojima2023large} exhibited that LLMs can generate CoT-style multi-step reasoning in a zero-shot manner, when prompted with the prefix "Let's think step by step".
+Other work proposes prompting LLMs with intermediate reasoning steps. Chain-of-Thought (CoT) prompting~\cite{wei2023chainofthought} persuades LLMs to generate intermediate reasoning steps before the final answer.
+Whilst the above prompts were hand-crafted, it has been shown that LLMs can generate CoT-style multi-step reasoning in a zero-shot manner, when prompted with the prefix ``Let's think step by step''~\cite{kojima2023large}.
 
-Finally, state-of-the-art approaches for long document summarization include the following: Top Down Transformer (Long Document Summarization with Top-down and Bottom-up Inference) ~\cite{pang2022long}; LongT5: Efficient Text-to-Text Transformer for Long Sequences~\cite{guo2022longt5}; and Pegasus X: Investigating Efficiently Extending Transformers for Long Document Summarization ~\cite{phang2022investigating}.
-However, different from our approach, all of these methods require extensive compute and large amount of human supervision to finetune the Transformer models for summarization.
-
+Finally, state-of-the-art approaches for long document summarization include the following: Top Down Transformer (Long Document Summarization with Top-down and Bottom-up Inference)~\cite{pang2022long}; LongT5: Efficient Text-to-Text Transformer for Long Sequences~\cite{guo2022longt5}; and Pegasus X: Investigating Efficiently Extending Transformers for Long Document Summarization~\cite{phang2022investigating}.
+However, unlike from our approach, all of these methods require extensive compute and large amount of human supervision to fine-tune the Transformer models for summarization.
 
 
 \section{Methodology}
-%- provide tools that are analogous to long term memory in humans
-
 
 
 Our goal was to create a modified ART framework that allows for an LLM to read from, write to, and organize a form of long-term memory, without actually retraining model weights.
@@ -155,14 +152,13 @@ We report metrics from the ROUGE family~\cite{lin-hovy-2003-automatic,ganesan201
 We observe clear improvement over the base prompt for the two modifications. While the sample size for this experiment was small,\footnote{The cost of this experiment with \texttt{n=10} was US\$16, so we would like more funds in order to validate that these changes improve performance.} we think the difference is significant because they make it possible for more stored information to be \texttt{[read]} when generating the final summary.
 
 
-
 \section{Conclusion}
 
 In this project we have designed and implemented tools to be used by an LLM to organize and store relevant data for long-term/future use.
 We encountered difficulties in providing enough context for the LLM to properly use the tools, but found some success by shortening the stored text and the prompt.
 Future research avenues could involve using newer, bigger, LLMs that have larger context windows allowing for more varied tool use samples to be passed as part of the prompt.
 Otherwise, it may be desirable to fine tune smaller models specifically to use tools and address long standing issues with LLM capabilities.
-We'd also like to apply this methodology to make it possible for a frozen LLM to "learn" useful information to an external database, allowing the model to perform continual learning in the same way that it "learned" information as it processed each chunk of the articles in our experiment.
+We'd also like to apply this methodology to make it possible for a frozen LLM to ``learn'' useful information to an external database, allowing the model to perform continual learning in the same way that it ``learned'' information as it processed each chunk of the articles in our experiment.
 Creating systems capable of learning to use tools will be an invaluable step in the path to robust models that learn across their deployment lifecycle.
 
 \bibliographystyle{neurips}
@@ -211,6 +207,7 @@ Here is the complete base prompt we used for our experiments. Unlike Paranjape e
 
   In this final example, we show how you will output the final summary using [ans]:
 
+  ----BEGIN EXAMPLE----
   Input: (4/4) we see reversals without bifurcations in ( a ) whereas the zoomed version ( c ) shows that there are windows of periodic and chaotic regimes . <SHORTENED FOR BREVITY> each of the transitions from periodic behavior to chaos and back provides opportunities for the current to spike .
   Q1: [list-keys]
   #1: regular-chaotic-motions, ensemble-effects, bifurcations-and-reversals
